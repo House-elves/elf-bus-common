@@ -105,6 +105,46 @@ Result payload (`github.issue.label.result`):
 | **`status`** | `"ok"` \| `"error"` | |
 | `error` | string | present iff `status == "error"` |
 
+### mail.send
+
+| | |
+|---|---|
+| Producer  | any elf |
+| Consumer  | mail-worker |
+| Result    | `mail.send.result` |
+| Retries   | Yes — SMTP 4xx, connection reset, transient DNS. Auth (5xx), recipient-not-allow-listed (validation), malformed addresses are hard failures. |
+
+Send an outbound email on behalf of the producer elf. mail-worker is the sole holder of SMTP credentials in the House Elves system; this kind exists so other elves can reach the principal (or other pre-approved addresses) without each holding their own SMTP setup.
+
+Payload:
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| **`to`** | string | yes | Recipient address. MUST be present in mail-worker's `ALLOWED_RECIPIENTS` config — otherwise hard-failure. |
+| **`subject`** | string | yes | Subject line. |
+| **`body`** | string | yes | Plain-text body (UTF-8). |
+| `in_reply_to` | string | no | Message-Id of an existing thread to reply into. Sets the `In-Reply-To` and `References` SMTP headers. |
+
+Result payload (`mail.send.result`):
+
+| Field | Type | Description |
+|---|---|---|
+| **`status`** | `"ok"` \| `"error"` | |
+| `message_id` | string | SMTP Message-Id assigned to the sent mail; present on `status == "ok"`. Producers can use this as `in_reply_to` for follow-ups. |
+| `error` | string | present iff `status == "error"` |
+
+#### Note on recipient ACLs
+
+mail-worker enforces an **`ALLOWED_RECIPIENTS`** allow-list before sending. This is the symmetric protection to inbound `ALLOWED_SENDERS`:
+
+- Without it, any producer (or any bug in a producer) can fire arbitrary mail. Spam vector.
+- With it, producers can only reach addresses the operator has pre-approved — typically just the principal.
+- Forbidden recipients dead-letter immediately (hard failure, not retryable).
+
+Operators expand the allow-list deliberately; producers can't grow it.
+
+Operators may *also* want a rate limit (max N outbound per hour) as a circuit breaker against runaway loops. Not part of the kind contract; it's a mail-worker-side defence and can be added without changing this spec.
+
 #### Note on channel-level ACLs
 
 mail-worker enforces a label allow-list on its own side (`approval:granted`
@@ -145,6 +185,9 @@ All v1 kinds are idempotent at the bus layer (consumer dedupes on
 - `github.issue.comment` — same window, same accepted risk.
 - `github.issue.label` — naturally idempotent (adding the same label
   twice is a no-op on GitHub's side).
+- `mail.send` — retrying after a successful send produces a duplicate
+  email. Same window as the github kinds; duplicates are user-visible
+  in the recipient's inbox.
 
 If duplicate-creates become a real problem, the fix is producer-side:
 include an `X-Elf-Idempotency-Key` header, have github-worker store it
@@ -158,7 +201,6 @@ Spec them here before implementing.
 | Kind | Producer | Consumer | Notes |
 |---|---|---|---|
 | `github.pr.review-request` | mail-worker, others | github-worker | Ask the reviewer flow to look at a PR out-of-band. Overlaps with the existing label-driven flow. |
-| `mail.reply.send` | any | mail-worker | Let other elves send mail via the principal's mailbox. Requires careful auth thinking — every elf can speak as the principal? |
 | `calendar.event.create` | mail-worker | calendar-worker | Implemented locally in mail-worker for v1; split out only if a second producer appears. |
 | `slack.message.send` | any | slack-worker | If we ever build a slack elf. |
 
