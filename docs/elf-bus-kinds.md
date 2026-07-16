@@ -133,6 +133,40 @@ Result payload (`mail.send.result`):
 | `message_id` | string | SMTP Message-Id assigned to the sent mail; present on `status == "ok"`. Producers can use this as `in_reply_to` for follow-ups. |
 | `error` | string | present iff `status == "error"` |
 
+### session.run
+
+| | |
+|---|---|
+| Producer  | mail-worker |
+| Consumer  | session-worker |
+| Result    | `session.run.result` |
+| Retries   | No - a session run is not idempotent (it may have edited files or run commands before failing). Failures dead-letter and surface to the principal as an error reply. |
+
+Run (or continue) an interactive Claude Code session on the host, driven by an email from the principal. This is REMOTE CODE EXECUTION BY DESIGN: mail-worker MUST only produce this kind for senders on its `SESSION_SENDERS` allow-list whose messages carry a passing DKIM authentication result. session-worker never sees the mailbox; mail-worker never runs a shell.
+
+Payload:
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| **`thread_key`** | string | yes | Stable key for the mail thread (the root Message-Id from `References`, else the message's own Message-Id). session-worker maps this to a Claude session id so replies continue the same session. |
+| **`subject`** | string | yes | The email subject. |
+| **`body`** | string | yes | The email's plain-text body: the instruction for the session. |
+| **`from`** | string | yes | The (DKIM-verified) principal address that sent the mail. |
+| `attachments` | string[] | no | Absolute paths of attachment files mail-worker spooled to local disk. |
+
+Result payload (`session.run.result`):
+
+| Field | Type | Description |
+|---|---|---|
+| **`status`** | `"ok"` \| `"error"` | |
+| `reply_body` | string | The session's final answer, sent back to the principal as a threaded reply; present on `status == "ok"`. |
+| `session_id` | string | The Claude session id (also persisted against `thread_key` by session-worker). |
+| `error` | string | present iff `status == "error"` |
+
+#### Note on the trust boundary
+
+The pair of gates lives in mail-worker (sender allow-list + DKIM pass), enforced in code before anything is enqueued. session-worker additionally refuses envelopes whose `from` payload field is not in its own `SESSION_SENDERS` copy - defence in depth for a bus anyone on the host can write to.
+
 #### Note on recipient ACLs
 
 mail-worker enforces an **`ALLOWED_RECIPIENTS`** allow-list before sending. This is the symmetric protection to inbound `ALLOWED_SENDERS`:
