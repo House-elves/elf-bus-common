@@ -301,7 +301,7 @@ an unsupported version dead-letters (§9).
 
 ## 14. Example: mail-worker files an issue via github-worker
 
-Phillip emails `bin.chicken@bin-space.app` asking for a new issue.
+Phillip emails `bin-chicken@greatsouthernsoftware.com.au` asking for a new issue.
 mail-worker triages and enqueues:
 
 **File:** `~/.local/share/elf-bus/github-worker/Maildir/new/1748256202.<uuid>.elf-bus`
