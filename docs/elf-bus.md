@@ -319,7 +319,7 @@ X-Elf-Provenance: email; principal=phillip.kruger@bin-space.app
 Content-Type: application/json; charset=utf-8
 
 {
-  "repo": "bin-space-app/specifications",
+  "repo": "Great-Southern-Software/bin-space-specifications",
   "title": "Reviewer should flag leftover TODO comments",
   "body": "Filed on behalf of phillip.kruger via email.\n\nUpdate the reviewer agent so it flags new TODO comments in the diff as blocking concerns.",
   "labels": ["origin:mail", "state:new"],
@@ -348,9 +348,9 @@ Content-Type: application/json; charset=utf-8
 {
   "status": "ok",
   "issue": {
-    "repo": "bin-space-app/specifications",
+    "repo": "Great-Southern-Software/bin-space-specifications",
     "number": 42,
-    "url": "https://github.com/bin-space-app/specifications/issues/42"
+    "url": "https://github.com/Great-Southern-Software/bin-space-specifications/issues/42"
   }
 }
 ```
