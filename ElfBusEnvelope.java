@@ -35,7 +35,18 @@ public record ElfBusEnvelope(
         try (InputStream in = Files.newInputStream(file)) {
             MimeMessage m = new MimeMessage(SESSION, in);
             Object content = m.getContent();
-            String json = (content instanceof String s) ? s : content.toString();
+            // jakarta.mail has no DataContentHandler for application/json, so
+            // getContent() hands back a raw InputStream - toString()ing that
+            // feeds "jakarta.mail.util.SharedByteArrayInputStream@..." to the
+            // JSON parser. Read the bytes.
+            String json;
+            if (content instanceof String s) {
+                json = s;
+            } else if (content instanceof InputStream body) {
+                json = new String(body.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+            } else {
+                json = content.toString();
+            }
             return new ElfBusEnvelope(
                     require(m, "Message-Id"),
                     require(m, "X-Elf-Bus-Version"),
